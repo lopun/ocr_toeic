@@ -1,14 +1,23 @@
 const csvFilePath='./data.csv';
 const csv = require('csvtojson');
 const json2csv = require('json2csv').Parser;
-const ocr_func = require('./lib/ocr.js').ocr_func;
+const single_process = require('./lib/ocr.js').single_process;
 const fs = require('fs');
 
 const imageFolder = './images/';
 
 fs.readdir(imageFolder, (err, files) => {
-    files.forEach(file => {
-        console.log(file)
+    files.forEach((file, index) => {
+        if (index >= 2 && index <= 10) {
+            let result = single_process(files[2])
+            result
+                .then(text => {
+                    console.log(text)
+                    return text
+                })
+                .catch(err => console.log(err))
+            console.log(result)
+        }
     })
 })
 
