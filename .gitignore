@@ -6,3 +6,4 @@ data.csv
 output.csv
 .DS_Store
 .env
+docker-compose.yml
