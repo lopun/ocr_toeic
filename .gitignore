@@ -1,5 +1,8 @@
 node_modules/
 images/
+ocr_text/
+test/
 data.csv
 output.csv
 .DS_Store
+.env
