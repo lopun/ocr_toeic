@@ -1,5 +1,5 @@
 # ocr_toeic
-# Onboarding Project - OCR TOEIC images
+Onboarding Project - OCR TOEIC images
 
 ## Scripts
 
