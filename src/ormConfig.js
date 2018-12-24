@@ -5,7 +5,7 @@ const defaultConnectOptions= {
   database: "ocr",
   synchronize: true,
   // 모든 로깅을 보게된다.
-  logging: true,
+  logging: false,
   entities: [
     new EntitySchema(require('./entities/Toeic'))
   ],

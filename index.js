@@ -8,123 +8,81 @@ const {createConnection, EntitySchema} = require('typeorm');
 
 const defaultConnectOptions = require('./src/ormConfig');
 
-// db 연결
-
 const csvFilePath = './data.csv';
 const csv = require('csvtojson');
-const json2csv = require('json2csv').Parser;
-const single_process = require('./lib/ocr.js').single_process;
+// const json2csv = require('json2csv').Parser;
 const fs = require('fs');
 
 const imageFolder = './images/';
 const textFolder = './ocr_text/';
 
+const single_process = require('./lib/single_process.js');
+
 let textFiles = fs.readdirSync(textFolder);
-let count = 0;
 
+const count_pointer = {
+  value: 0,
+};
 
-let files = fs.readdir(imageFolder, async (err, files) => {
-  // DB Connection
-  const connection = await createConnection(defaultConnectOptions);
-  console.log('DB Connected');
+let file_index = 0;
+let process_limit = 20;
 
-  const TOEIC = connection.getRepository('Toeic');
+// Run single_process upto 10
+const process_flagging = async (files, files_length, TOEIC) => {
+  if (count_pointer.value >= process_limit) {
+    setTimeout(
+      () => process_flagging(files, files_length, TOEIC),
+      100,
+    ); /* this checks the flag every 100 milliseconds*/
+  } else {
+    if (file_index >= 2 && file_index < files_length) {
+      count_pointer.value++;
+      single_process(files[file_index], TOEIC, count_pointer);
+    }
 
-  let files_length = files.length;
+    file_index++;
+    if (count_pointer.value <= process_limit) {
+      process_flagging(files, files_length, TOEIC);
+    }
 
-  for (let i = 0; i < files_length; i++) {
+    return;
+  }
+};
+
+const correctness_flagging = async (files, files_length, TOEIC) => {
+  if (file_index < files_length - 2) {
+    setTimeout(() => correctness_flagging(files, files_length, TOEIC), 100);
+  } else {
     try {
-      let file = files[i];
-      let filename = file.split('.')[0];
-      if (i >= 2 && i < files_length) {
-        let found_toeic = await TOEIC.findOne({file});
+      let total_toeic_list = await TOEIC.find();
+      let saved_toeic_list = await TOEIC.find({ok: 1});
+      let total_toeic_list_length = total_toeic_list.length;
+      let saved_toeic_list_length = saved_toeic_list.length;
 
-        if (found_toeic && found_toeic.ok === 0) {
-          console.log(`Please manually update ${file}.`);
-          continue;
-        }
-
-        if (found_toeic && found_toeic.ok === 1) {
-          console.log(`${file} was successfully updated!`);
-          continue;
-        }
-
-        console.log(`Processing file ${filename}.png`);
-        let text = await single_process(file);
-        fs.writeFileSync(textFolder + filename + '.txt', text);
-
-        let text_arr = text.split('\n').filter(item => item !== '');
-
-        let already_saved = 0;
-
-        for (let j = 0; j < text_arr.length; j++) {
-          if (text_arr[j] == 'TOTAL') {
-            let date, lc, rc, match_result;
-            match_result = text_arr[j + 1].match(
-              /[0-9]{4}\.[0-9]{2}\.[0-9]{2}/,
-            );
-
-            if (match_result) {
-              date = match_result[0];
-            } else {
-              j++;
-              match_result = text_arr[j + 1].match(
-                /[0-9]{4}\.[0-9]{2}\.[0-9]{2}/,
-              );
-              if (match_result) {
-                date = match_result[0];
-              } else {
-                console.log('Match Fail');
-                continue;
-              }
-            }
-            lc = text_arr[j + 2];
-            rc = text_arr[j + 3];
-            if ((rc.match(/[0-9]{0,3}/), lc.match(/[0-9]{0,3}/))) {
-              const created_toeic = await TOEIC.save({
-                file,
-                date,
-                lc: parseInt(lc),
-                rc: parseInt(rc),
-                ok: 1,
-              });
-              console.log(created_toeic);
-              console.log(`${file} TOEIC Successfully Saved!`);
-            }
-          } else {
-            const false_toeic = await TOEIC.save({
-              file,
-              date: '0000.00.00',
-              lc: 000,
-              rc: 000,
-              ok: 0,
-            });
-            console.log(false_toeic);
-            console.log(`Please manually update ${file}.`);
-          }
-          break;
-        }
-      }
+      // Correctness Test
+      console.log(
+        `Correctness is ${parseInt(
+          (saved_toeic_list_length / total_toeic_list_length) * 100,
+        )}%`
+      );
+      console.log("The program exits in 5 seconds")
+      setTimeout(function() {
+        return process.exit(22);
+      }, 5000);
     } catch (err) {
       console.log(err);
     }
   }
+};
 
-  try {
-    let total_toeic_list = await TOEIC.find();
-    let saved_toeic_list = await TOEIC.find({ok: 1});
-    let total_toeic_list_length = total_toeic_list.length;
-    let saved_toeic_list_length = saved_toeic_list.length;
-
-    // Correcteness Test
-    console.log(
-      `Correcteness is ${parseInt(
-        (saved_toeic_list_length / total_toeic_list_length) * 100,
-      )}%`,
-    );
-  } catch (err) {
-    console.log(err);
-  }
+createConnection(defaultConnectOptions).then(connection => {
+  console.log('DB Connected');
+  const TOEIC = connection.getRepository('Toeic');
+  fs.readdir(imageFolder, async (err, files) => {
+    let files_length = files.length;
+    process_flagging(files, files_length, TOEIC);
+    correctness_flagging(files, files_length, TOEIC);
+  });
 });
 
 // csv()
